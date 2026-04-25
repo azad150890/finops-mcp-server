@@ -1,1 +1,0 @@
-# finops-mcp-server

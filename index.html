@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FinOps Chatbot</title>
+</head>
+<body>
+
+<h2>FinOps MCP Chatbot</h2>
+
+<input id="msg" placeholder="Ask cost question..." />
+<button onclick="send()">Send</button>
+
+<pre id="out"></pre>
+
+<script>
+async function send() {
+  const msg = document.getElementById("msg").value;
+
+  const res = await fetch("https://YOUR-MCP-APP.azurewebsites.net/tool/cost-summary", {
+    method: "POST"
+  });
+
+  const data = await res.json();
+
+  document.getElementById("out").innerText =
+    "Cost Summary:\n" + JSON.stringify(data, null, 2);
+}
+</script>
+
+</body>
+</html>
