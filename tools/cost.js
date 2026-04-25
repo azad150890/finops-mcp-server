@@ -1,4 +1,5 @@
 import axios from "axios";
+import { DefaultAzureCredential } from "@azure/identity";
 
 /**
  * REAL Azure Cost Management API call
@@ -42,41 +43,24 @@ export async function getCostSummary() {
     return response.data;
 
   } catch (error) {
-  console.error("FULL ERROR:", error.response?.data || error.message);
+    console.error("FULL ERROR:", error.response?.data || error.message);
 
-  return {
-    error: true,
-    raw: error.response?.data || error.message
-  };
-}
+    return {
+      error: true,
+      raw: error.response?.data || error.message
+    };
+  }
 }
 
 /**
- * Get Azure access token using Managed Identity (IMDS)
+ * Get Azure access token using Managed Identity (CORRECT WAY)
  */
 export async function getAzureAccessToken() {
-  const url =
-    "http://169.254.169.254/metadata/identity/oauth2/token";
+  const credential = new DefaultAzureCredential();
 
-  try {
-    const res = await axios.get(url, {
-      params: {
-        "api-version": "2018-02-01",
-        resource: "https://management.azure.com/"
-      },
-      headers: {
-        Metadata: "true"
-      },
-      timeout: 5000
-    });
+  const scope = "https://management.azure.com/.default";
 
-    return res.data.access_token;
+  const tokenResponse = await credential.getToken(scope);
 
-  } catch (error) {
-    console.error("❌ IMDS token error:", error.message);
-
-    throw new Error(
-      "Failed to get Azure Managed Identity token. Check App Service identity + network access."
-    );
-  }
+  return tokenResponse.token;
 }
