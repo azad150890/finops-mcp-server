@@ -42,13 +42,13 @@ export async function getCostSummary() {
     return response.data;
 
   } catch (error) {
-    console.error("Cost API error:", error.response?.data || error.message);
+  console.error("FULL ERROR:", error.response?.data || error.message);
 
-    return {
-      error: true,
-      message: "Failed to fetch Azure cost data"
-    };
-  }
+  return {
+    error: true,
+    raw: error.response?.data || error.message
+  };
+}
 }
 
 /**
