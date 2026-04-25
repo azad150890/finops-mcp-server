@@ -52,16 +52,31 @@ export async function getCostSummary() {
 }
 
 /**
- * Get Azure access token using Managed Identity
+ * Get Azure access token using Managed Identity (IMDS)
  */
-async function getAzureAccessToken() {
+export async function getAzureAccessToken() {
   const url =
-    "http://169.254.169.254/metadata/identity/oauth2/token" +
-    "?api-version=2018-02-01&resource=https://management.azure.com/";
+    "http://169.254.169.254/metadata/identity/oauth2/token";
 
-  const res = await axios.get(url, {
-    headers: { Metadata: "true" }
-  });
+  try {
+    const res = await axios.get(url, {
+      params: {
+        "api-version": "2018-02-01",
+        resource: "https://management.azure.com/"
+      },
+      headers: {
+        Metadata: "true"
+      },
+      timeout: 5000
+    });
 
-  return res.data.access_token;
+    return res.data.access_token;
+
+  } catch (error) {
+    console.error("❌ IMDS token error:", error.message);
+
+    throw new Error(
+      "Failed to get Azure Managed Identity token. Check App Service identity + network access."
+    );
+  }
 }
