@@ -3,12 +3,17 @@ import dotenv from "dotenv";
 import { getCostSummary } from "./tools/cost.js";
 import { detectAnomaly } from "./tools/anomaly.js";
 import { getEmbedding } from "./tools/embedding.js";
-import cors from "cors";
+const express = require("express");
+const cors = require("cors");
+
+const app = express();
 
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST"]
 }));
+
+app.use(express.json());
 
 dotenv.config();
 
