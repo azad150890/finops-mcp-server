@@ -2,7 +2,7 @@ import axios from "axios";
 import { DefaultAzureCredential } from "@azure/identity";
 
 /**
- * Use Phi-4 model for cost analysis via Azure AI Foundry project endpoint
+ * Use Phi-4 model via Azure AI Foundry Agents
  */
 export async function getCostSummary() {
   try {
@@ -12,84 +12,94 @@ export async function getCostSummary() {
     }
 
     const rawEndpoint = process.env.PHI4_ENDPOINT.trim();
-    if (rawEndpoint.includes("/models/chat/completions") || rawEndpoint.includes("/openai/")) {
-      console.error("ERROR: PHI4_ENDPOINT appears to be an Azure OpenAI endpoint, not a Foundry project endpoint.");
+
+    // Guard against wrong endpoint type
+    if (
+      rawEndpoint.includes("/models/chat/completions") ||
+      rawEndpoint.includes("/openai/")
+    ) {
       return {
         error: true,
-        message: "PHI4_ENDPOINT must be the Foundry project endpoint, e.g. https://<resource>.services.ai.azure.com/api/projects/finops-chatbot"
+        message:
+          "PHI4_ENDPOINT must be Foundry project endpoint like: https://<resource>.services.ai.azure.com/api/projects/<project>"
       };
     }
 
     const projectEndpoint = rawEndpoint.replace(/\/+$/, "");
     const agentName = process.env.PHI4_AGENT_NAME || "phi-4";
-    const prompt = "Analyze my Azure costs for the month to date. Provide a summary of costs by service in a human-readable format.";
 
-    console.log("Raw PHI4_ENDPOINT:", rawEndpoint);
+    const prompt =
+      "Analyze my Azure costs for the month to date. Provide a summary of costs by service in a human-readable format.";
+
     console.log("Project endpoint:", projectEndpoint);
     console.log("Agent name:", agentName);
-    console.log("Sending prompt:", prompt);
 
-    // Use API key if available, otherwise fall back to Azure AD token
-    let authHeaders;
+    // Auth
+    let headers = {
+      "Content-Type": "application/json"
+    };
+
     if (process.env.PHI4_KEY) {
-      console.log("Using PHI4_KEY for authentication");
-      authHeaders = {
-        "api-key": process.env.PHI4_KEY
-      };
+      console.log("Using API key");
+      headers["api-key"] = process.env.PHI4_KEY;
     } else {
-      console.log("No PHI4_KEY found, attempting Azure AD authentication");
-      const token = await getAzureAccessToken("https://ai.azure.com/.default");
-      authHeaders = {
-        Authorization: `Bearer ${token}`
-      };
+      console.log("Using Managed Identity");
+      const token = await getAzureAccessToken();
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const url = `${projectEndpoint}/agents/${agentName}/run?api-version=2024-07-01-preview`;
+    // ✅ Try stable API version first if 07 fails
+    const url = `${projectEndpoint}/agents/${agentName}/run?api-version=2024-05-01-preview`;
+
+    console.log("Calling URL:", url);
 
     const response = await axios.post(
       url,
       {
-        message: {
-          role: "user",
-          content: prompt
-        }
+        // ✅ CORRECT PAYLOAD
+        input: prompt
       },
-      {
-        headers: {
-          ...authHeaders,
-          "Content-Type": "application/json"
-        }
-      }
+      { headers }
     );
 
     console.log("Raw response:", JSON.stringify(response.data, null, 2));
 
-    const summary = response.data?.message?.content || response.data?.output?.message?.content || "Unable to parse agent response.";
+    // ✅ Flexible parsing
+    const summary =
+      response.data?.output ||
+      response.data?.messages?.[0]?.content ||
+      response.data?.message?.content ||
+      null;
 
     if (!summary) {
-      console.error("ERROR: Empty content in response");
-      return { error: true, message: "Empty response from agent", response: response.data };
+      return {
+        error: true,
+        message: "Could not parse agent response",
+        raw: response.data
+      };
     }
 
     return { summary };
+
   } catch (error) {
-    console.error("FULL ERROR:", error);
-    console.error("Error message:", error.message);
-    console.error("Error response:", error.response?.data || "N/A");
+    console.error("ERROR STATUS:", error.response?.status);
+    console.error("ERROR DATA:", JSON.stringify(error.response?.data, null, 2));
 
     return {
       error: true,
-      message: error.message || "Unknown error",
-      details: error.response?.data || error.message,
-      status: error.response?.status
+      message: error.message,
+      status: error.response?.status,
+      details: error.response?.data
     };
   }
 }
 
 /**
- * Get Azure access token using Managed Identity
+ * Get Azure AD token
  */
-export async function getAzureAccessToken(scope = "https://ai.azure.com/.default") {
+export async function getAzureAccessToken(
+  scope = "https://ai.azure.com/.default"
+) {
   const credential = new DefaultAzureCredential();
   const tokenResponse = await credential.getToken(scope);
   return tokenResponse.token;
