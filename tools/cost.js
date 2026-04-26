@@ -10,7 +10,7 @@ async function fetchAzureCosts() {
     "https://management.azure.com/.default"
   );
 
-  const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
+  const subscriptionId = process.env.SUBSCRIPTION_ID;
 
   const url = `https://management.azure.com/subscriptions/${subscriptionId}/providers/Microsoft.CostManagement/query?api-version=2023-03-01`;
 
