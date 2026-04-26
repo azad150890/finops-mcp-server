@@ -33,7 +33,7 @@ app.get("/", (req, res) => {
 app.get("/debug/config", (req, res) => {
   res.json({
     PHI4_ENDPOINT: process.env.PHI4_ENDPOINT ? "✓ Set" : "✗ Not Set",
-    PHI4_KEY: process.env.PHI4_KEY ? "✓ Set (" + process.env.PHI4_KEY.substring(0, 5) + "...)" : "✗ Not Set",
+    PHI4_AGENT_NAME: process.env.PHI4_AGENT_NAME ? `✓ Set (${process.env.PHI4_AGENT_NAME})` : "✓ Set (phi-4 default)",
     EMBED_ENDPOINT: process.env.EMBED_ENDPOINT ? "✓ Set" : "✗ Not Set",
     embed_key: process.env.embed_key ? "✓ Set" : "✗ Not Set",
     PORT: process.env.PORT || 3000

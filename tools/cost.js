@@ -1,59 +1,55 @@
-import OpenAI from "openai";
+import axios from "axios";
+import { DefaultAzureCredential } from "@azure/identity";
 
 /**
- * Use Phi-4 model for cost analysis
+ * Use Phi-4 model for cost analysis via Azure AI Foundry project endpoint
  */
 export async function getCostSummary() {
   try {
-    // Validate environment variables
-    if (!process.env.PHI4_KEY) {
-      console.error("ERROR: PHI4_KEY environment variable not set");
-      return { error: true, message: "PHI4_KEY not configured" };
-    }
     if (!process.env.PHI4_ENDPOINT) {
       console.error("ERROR: PHI4_ENDPOINT environment variable not set");
       return { error: true, message: "PHI4_ENDPOINT not configured" };
     }
 
-    console.log("Creating OpenAI client with endpoint:", process.env.PHI4_ENDPOINT);
-
-    const client = new OpenAI({
-      apiKey: process.env.PHI4_KEY,
-      baseURL: process.env.PHI4_ENDPOINT,
-    });
-
+    const projectEndpoint = process.env.PHI4_ENDPOINT.replace(/\/+$/, "");
+    const agentName = process.env.PHI4_AGENT_NAME || "phi-4";
     const prompt = "Analyze my Azure costs for the month to date. Provide a summary of costs by service in a human-readable format.";
-    console.log("Sending prompt to Phi-4:", prompt);
 
-    const response = await client.chat.completions.create({
-      model: "phi-4",
-      messages: [
-        {
-          role: "user",
-          content: prompt
+    console.log("Project endpoint:", projectEndpoint);
+    console.log("Agent name:", agentName);
+    console.log("Sending prompt:", prompt);
+
+    const token = await getAzureAccessToken("https://ai.azure.com/.default");
+    const url = `${projectEndpoint}/agents/${agentName}/run?api-version=2024-07-01-preview`;
+
+    const response = await axios.post(
+      url,
+      {
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
-      ],
-      max_tokens: 1000,
-      temperature: 0.7,
-    });
+      }
+    );
 
-    console.log("Raw response:", JSON.stringify(response, null, 2));
+    console.log("Raw response:", JSON.stringify(response.data, null, 2));
 
-    if (!response.choices || response.choices.length === 0) {
-      console.error("ERROR: No choices in response");
-      return { error: true, message: "No response from Phi-4 model", response };
-    }
+    const summary = response.data?.choices?.[0]?.message?.content || response.data?.output?.[0]?.content?.[0]?.text || "Unable to parse agent response.";
 
-    const summary = response.choices[0]?.message?.content;
-    
     if (!summary) {
       console.error("ERROR: Empty content in response");
-      return { error: true, message: "Empty response from Phi-4", response };
+      return { error: true, message: "Empty response from agent", response: response.data };
     }
 
-    console.log("Cost summary generated:", summary);
     return { summary };
-
   } catch (error) {
     console.error("FULL ERROR:", error);
     console.error("Error message:", error.message);
@@ -61,19 +57,18 @@ export async function getCostSummary() {
 
     return {
       error: true,
-      message: error.message,
-      details: error.response?.data || error.message
+      message: error.message || "Unknown error",
+      details: error.response?.data || error.message,
+      status: error.response?.status
     };
   }
 }
 
 /**
- * Get Azure access token using Managed Identity (CORRECT WAY)
+ * Get Azure access token using Managed Identity
  */
-export async function getAzureAccessToken(scope = "https://management.azure.com/.default") {
+export async function getAzureAccessToken(scope = "https://ai.azure.com/.default") {
   const credential = new DefaultAzureCredential();
-
   const tokenResponse = await credential.getToken(scope);
-
   return tokenResponse.token;
 }
