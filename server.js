@@ -28,12 +28,29 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
+   DEBUG: CHECK ENV VARIABLES
+========================= */
+app.get("/debug/config", (req, res) => {
+  res.json({
+    PHI4_ENDPOINT: process.env.PHI4_ENDPOINT ? "✓ Set" : "✗ Not Set",
+    PHI4_KEY: process.env.PHI4_KEY ? "✓ Set (" + process.env.PHI4_KEY.substring(0, 5) + "...)" : "✗ Not Set",
+    EMBED_ENDPOINT: process.env.EMBED_ENDPOINT ? "✓ Set" : "✗ Not Set",
+    embed_key: process.env.embed_key ? "✓ Set" : "✗ Not Set",
+    PORT: process.env.PORT || 3000
+  });
+});
+
+/* =========================
    TOOL 1: COST SUMMARY
 ========================= */
 app.post("/tool/cost-summary", async (req, res) => {
   try {
     const result = await getCostSummary();
-    res.type('text/plain').send(result.summary);
+    if (result.error) {
+      res.status(500).type('text/plain').send(`Error: ${result.message}`);
+    } else {
+      res.type('text/plain').send(result.summary);
+    }
   } catch (err) {
     res.status(500).type('text/plain').send(`Error: ${err.message}`);
   }
@@ -45,9 +62,13 @@ app.post("/tool/cost-summary", async (req, res) => {
 app.post("/tool/anomaly", async (req, res) => {
   try {
     const result = await detectAnomaly();
-    res.type('text/plain').send(result.summary);
+    if (result.error) {
+      res.status(500).type('text/plain').send(`Error: ${result.message}`);
+    } else {
+      res.type('text/plain').send(result.summary);
+    }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).type('text/plain').send(`Error: ${err.message}`);
   }
 });
 
