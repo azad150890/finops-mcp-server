@@ -11,10 +11,20 @@ export async function getCostSummary() {
       return { error: true, message: "PHI4_ENDPOINT not configured" };
     }
 
-    const projectEndpoint = process.env.PHI4_ENDPOINT.replace(/\/+$/, "");
+    const rawEndpoint = process.env.PHI4_ENDPOINT.trim();
+    if (rawEndpoint.includes("/models/chat/completions") || rawEndpoint.includes("/openai/")) {
+      console.error("ERROR: PHI4_ENDPOINT appears to be an Azure OpenAI endpoint, not a Foundry project endpoint.");
+      return {
+        error: true,
+        message: "PHI4_ENDPOINT must be the Foundry project endpoint, e.g. https://<resource>.services.ai.azure.com/api/projects/finops-chatbot"
+      };
+    }
+
+    const projectEndpoint = rawEndpoint.replace(/\/+$/, "");
     const agentName = process.env.PHI4_AGENT_NAME || "phi-4";
     const prompt = "Analyze my Azure costs for the month to date. Provide a summary of costs by service in a human-readable format.";
 
+    console.log("Raw PHI4_ENDPOINT:", rawEndpoint);
     console.log("Project endpoint:", projectEndpoint);
     console.log("Agent name:", agentName);
     console.log("Sending prompt:", prompt);
