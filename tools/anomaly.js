@@ -47,12 +47,10 @@ export async function detectAnomaly() {
     const response = await axios.post(
       url,
       {
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
+        message: {
+          role: "user",
+          content: prompt
+        }
       },
       {
         headers: {
@@ -64,7 +62,7 @@ export async function detectAnomaly() {
 
     console.log("Raw response:", JSON.stringify(response.data, null, 2));
 
-    const summary = response.data?.choices?.[0]?.message?.content || response.data?.output?.[0]?.content?.[0]?.text || "Unable to parse agent response.";
+    const summary = response.data?.message?.content || response.data?.output?.message?.content || "Unable to parse agent response.";
 
     if (!summary) {
       console.error("ERROR: Empty content in response");
