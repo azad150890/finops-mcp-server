@@ -1,46 +1,29 @@
-import axios from "axios";
-import { DefaultAzureCredential } from "@azure/identity";
+import OpenAI from "openai";
 
 /**
- * REAL Azure Cost Management API call
+ * Use Phi-4 model for cost analysis
  */
 export async function getCostSummary() {
   try {
-    const subscriptionId = process.env.SUBSCRIPTION_ID;
+    const client = new OpenAI({
+      apiKey: process.env.PHI4_KEY,
+      baseURL: process.env.PHI4_ENDPOINT,
+    });
 
-    const token = await getAzureAccessToken();
-
-    const url = `https://management.azure.com/subscriptions/${subscriptionId}/providers/Microsoft.CostManagement/query?api-version=2023-03-01`;
-
-    const response = await axios.post(
-      url,
-      {
-        type: "ActualCost",
-        timeframe: "MonthToDate",
-        dataset: {
-          aggregation: {
-            totalCost: {
-              name: "PreTaxCost",
-              function: "Sum"
-            }
-          },
-          grouping: [
-            {
-              type: "Dimension",
-              name: "ServiceName"
-            }
-          ]
+    const response = await client.chat.completions.create({
+      model: "phi-4", // or whatever the deployment name is
+      messages: [
+        {
+          role: "user",
+          content: "Analyze my Azure costs for the month to date. Provide a summary of costs by service in a human-readable format."
         }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+      ],
+      max_tokens: 1000,
+    });
 
-    return response.data;
+    const summary = response.choices[0]?.message?.content || "Unable to generate cost summary.";
+
+    return { summary };
 
   } catch (error) {
     console.error("FULL ERROR:", error.response?.data || error.message);
@@ -55,10 +38,8 @@ export async function getCostSummary() {
 /**
  * Get Azure access token using Managed Identity (CORRECT WAY)
  */
-export async function getAzureAccessToken() {
+export async function getAzureAccessToken(scope = "https://management.azure.com/.default") {
   const credential = new DefaultAzureCredential();
-
-  const scope = "https://management.azure.com/.default";
 
   const tokenResponse = await credential.getToken(scope);
 

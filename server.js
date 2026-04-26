@@ -33,9 +33,9 @@ app.get("/", (req, res) => {
 app.post("/tool/cost-summary", async (req, res) => {
   try {
     const result = await getCostSummary();
-    res.json(result);
+    res.type('text/plain').send(result.summary);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).type('text/plain').send(`Error: ${err.message}`);
   }
 });
 
@@ -45,7 +45,7 @@ app.post("/tool/cost-summary", async (req, res) => {
 app.post("/tool/anomaly", async (req, res) => {
   try {
     const result = await detectAnomaly();
-    res.json(result);
+    res.type('text/plain').send(result.summary);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
