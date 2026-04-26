@@ -27,14 +27,19 @@ export async function detectAnomaly() {
     console.log("Sending prompt:", prompt);
 
     // Use API key if available, otherwise fall back to Azure AD token
-    let authHeader;
+    // Use API key if available, otherwise fall back to Azure AD token
+    let authHeaders;
     if (process.env.PHI4_KEY) {
       console.log("Using PHI4_KEY for authentication");
-      authHeader = `Bearer ${process.env.PHI4_KEY}`;
+      authHeaders = {
+        "api-key": process.env.PHI4_KEY
+      };
     } else {
       console.log("No PHI4_KEY found, attempting Azure AD authentication");
       const token = await getAzureAccessToken("https://ai.azure.com/.default");
-      authHeader = `Bearer ${token}`;
+      authHeaders = {
+        Authorization: `Bearer ${token}`
+      };
     }
 
     const url = `${projectEndpoint}/agents/${agentName}/run?api-version=2024-07-01-preview`;
@@ -51,7 +56,7 @@ export async function detectAnomaly() {
       },
       {
         headers: {
-          Authorization: authHeader,
+          ...authHeaders,
           "Content-Type": "application/json"
         }
       }
