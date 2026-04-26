@@ -1,106 +1,63 @@
-import axios from "axios";
-import { DefaultAzureCredential } from "@azure/identity";
+import OpenAI from "openai";
 
 /**
- * Use Phi-4 model via Azure AI Foundry Agents
+ * Use Phi-4 via Azure OpenAI-compatible endpoint
  */
 export async function getCostSummary() {
   try {
-    if (!process.env.PHI4_ENDPOINT) {
-      console.error("ERROR: PHI4_ENDPOINT environment variable not set");
-      return { error: true, message: "PHI4_ENDPOINT not configured" };
-    }
-
-    const rawEndpoint = process.env.PHI4_ENDPOINT.trim();
-
-    // Guard against wrong endpoint type
-    if (
-      rawEndpoint.includes("/models/chat/completions") ||
-      rawEndpoint.includes("/openai/")
-    ) {
+    if (!process.env.PHI4_ENDPOINT || !process.env.PHI4_KEY) {
       return {
         error: true,
-        message:
-          "PHI4_ENDPOINT must be Foundry project endpoint like: https://<resource>.services.ai.azure.com/api/projects/<project>"
+        message: "Missing PHI4_ENDPOINT or PHI4_KEY"
       };
     }
 
-    const projectEndpoint = rawEndpoint.replace(/\/+$/, "");
-    const agentName = process.env.PHI4_AGENT_NAME || "phi-4";
+    const endpoint = process.env.PHI4_ENDPOINT.trim();
+    const deployment = process.env.PHI4_AGENT_NAME || "Phi-4-reasoning-1";
 
-    const prompt =
-      "Analyze my Azure costs for the month to date. Provide a summary of costs by service in a human-readable format.";
+    console.log("Endpoint:", endpoint);
+    console.log("Deployment:", deployment);
 
-    console.log("Project endpoint:", projectEndpoint);
-    console.log("Agent name:", agentName);
+    const client = new OpenAI({
+      baseURL: endpoint, // must include /openai/v1/
+      apiKey: process.env.PHI4_KEY
+    });
 
-    // Auth
-    let headers = {
-      "Content-Type": "application/json"
-    };
+    const completion = await client.chat.completions.create({
+      model: deployment,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a FinOps assistant. Provide clear, structured Azure cost summaries."
+        },
+        {
+          role: "user",
+          content:
+            "Analyze my Azure costs for the month to date and summarize by service."
+        }
+      ]
+    });
 
-    if (process.env.PHI4_KEY) {
-      console.log("Using API key");
-      headers["api-key"] = process.env.PHI4_KEY;
-    } else {
-      console.log("Using Managed Identity");
-      const token = await getAzureAccessToken();
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    // ✅ Try stable API version first if 07 fails
-    const url = `${projectEndpoint}/agents/${agentName}/run?api-version=2024-05-01-preview`;
-
-    console.log("Calling URL:", url);
-
-    const response = await axios.post(
-      url,
-      {
-        // ✅ CORRECT PAYLOAD
-        input: prompt
-      },
-      { headers }
-    );
-
-    console.log("Raw response:", JSON.stringify(response.data, null, 2));
-
-    // ✅ Flexible parsing
-    const summary =
-      response.data?.output ||
-      response.data?.messages?.[0]?.content ||
-      response.data?.message?.content ||
-      null;
+    const summary = completion.choices?.[0]?.message?.content;
 
     if (!summary) {
       return {
         error: true,
-        message: "Could not parse agent response",
-        raw: response.data
+        message: "Empty response from model",
+        raw: completion
       };
     }
 
     return { summary };
 
   } catch (error) {
-    console.error("ERROR STATUS:", error.response?.status);
-    console.error("ERROR DATA:", JSON.stringify(error.response?.data, null, 2));
+    console.error("ERROR:", error);
 
     return {
       error: true,
       message: error.message,
-      status: error.response?.status,
-      details: error.response?.data
+      details: error.response?.data || null
     };
   }
-}
-
-/**
- * Get Azure AD token
- */
-export async function getAzureAccessToken(
-  scope = "https://ai.azure.com/.default"
-) {
-  const credential = new DefaultAzureCredential();
-  const tokenResponse = await credential.getToken(scope);
-  return tokenResponse.token;
 }
