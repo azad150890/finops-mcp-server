@@ -2,7 +2,35 @@
 <html>
 <head>
   <title>FinOps Chatbot</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    #out {
+      margin-top: 20px;
+      padding: 12px;
+      background: #111;
+      color: #0f0;
+      white-space: pre-wrap;
+      min-height: 120px;
+      border-radius: 6px;
+    }
+
+    input {
+      width: 300px;
+      padding: 8px;
+    }
+
+    button {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+  </style>
 </head>
+
 <body>
 
 <h2>FinOps MCP Chatbot</h2>
@@ -15,15 +43,47 @@
 <script>
 async function send() {
   const msg = document.getElementById("msg").value;
+  const out = document.getElementById("out");
 
-  const res = await fetch("https://app-mcp-finops-hrhzdqh0bvhpa4c4.southindia-01.azurewebsites.net/tool/cost-summary", {
-    method: "POST"
-  });
+  out.textContent = "Loading...";
 
-  const data = await res.json();
+  try {
+    const res = await fetch(
+      "https://app-mcp-finops-hrhzdqh0bvhpa4c4.southindia-01.azurewebsites.net/tool/cost-summary",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: msg
+        })
+      }
+    );
 
-  document.getElementById("out").innerText =
-    "Cost Summary:\n" + JSON.stringify(data, null, 2);
+    // Handle HTTP errors properly
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errText}`);
+    }
+
+    const data = await res.json();
+
+    console.log("API RESPONSE:", data);
+
+    // Safely extract common response formats
+    const output =
+      data.summary ||
+      data.result ||
+      data.message ||
+      JSON.stringify(data, null, 2);
+
+    out.textContent = output;
+
+  } catch (err) {
+    console.error(err);
+    out.textContent = "Error:\n" + err.message;
+  }
 }
 </script>
 
