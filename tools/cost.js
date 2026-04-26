@@ -6,17 +6,17 @@ export async function getCostSummary() {
       baseURL: process.env.PHI4_ENDPOINT,
       apiKey: process.env.PHI4_KEY,
       defaultQuery: {
-        "api-version": "2024-02-15-preview"
+        "api-version": "2024-05-01-preview"
       }
     });
 
     const completion = await client.chat.completions.create({
-      model: process.env.PHI4_AGENT_NAME || "Phi-4-reasoning-1",
+      model: process.env.PHI4_AGENT_NAME, // MUST be deployment name
       messages: [
         {
           role: "system",
           content:
-            "You are a FinOps assistant. Provide clear Azure cost summaries."
+            "You are a FinOps assistant. Summarize Azure costs clearly by service."
         },
         {
           role: "user",
