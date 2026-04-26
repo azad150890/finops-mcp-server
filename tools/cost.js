@@ -29,7 +29,17 @@ export async function getCostSummary() {
     console.log("Agent name:", agentName);
     console.log("Sending prompt:", prompt);
 
-    const token = await getAzureAccessToken("https://ai.azure.com/.default");
+    // Use API key if available, otherwise fall back to Azure AD token
+    let authHeader;
+    if (process.env.PHI4_KEY) {
+      console.log("Using PHI4_KEY for authentication");
+      authHeader = `Bearer ${process.env.PHI4_KEY}`;
+    } else {
+      console.log("No PHI4_KEY found, attempting Azure AD authentication");
+      const token = await getAzureAccessToken("https://ai.azure.com/.default");
+      authHeader = `Bearer ${token}`;
+    }
+
     const url = `${projectEndpoint}/agents/${agentName}/run?api-version=2024-07-01-preview`;
 
     const response = await axios.post(
@@ -44,7 +54,7 @@ export async function getCostSummary() {
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: authHeader,
           "Content-Type": "application/json"
         }
       }
