@@ -49,9 +49,10 @@ async function fetchAzureCosts() {
 }
 
 /**
- * Step 2: Summarize with Phi-4
+ * Step 2: Summarize with Phi-4, using user prompt
+ * @param {string} userPrompt - The user's analysis prompt/question
  */
-export async function getCostSummary() {
+export async function getCostSummary(userPrompt) {
   try {
     const costData = await fetchAzureCosts();
 
@@ -63,6 +64,11 @@ export async function getCostSummary() {
       }
     });
 
+    // Use user prompt if provided, otherwise use a default
+    const prompt = userPrompt && userPrompt.trim().length > 0
+      ? userPrompt
+      : `Analyze my Azure costs for the month to date. Provide a summary of costs by service in a human-readable format.`;
+
     const completion = await client.chat.completions.create({
       model: process.env.PHI4_AGENT_NAME,
       messages: [
@@ -73,17 +79,7 @@ export async function getCostSummary() {
         },
         {
           role: "user",
-          content: `
-Here is Azure cost data (month-to-date):
-
-${JSON.stringify(costData, null, 2)}
-
-Return:
-- Total cost
-- Top 3 services by cost
-- Cost anomalies
-- Optimization recommendations
-`
+          content: `\nHere is Azure cost data (month-to-date):\n\n${JSON.stringify(costData, null, 2)}\n\n${prompt}`
         }
       ]
     });

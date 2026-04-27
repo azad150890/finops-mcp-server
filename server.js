@@ -45,7 +45,8 @@ app.get("/debug/config", (req, res) => {
 ========================= */
 app.post("/tool/cost-summary", async (req, res) => {
   try {
-    const result = await getCostSummary();
+    const userPrompt = req.body && req.body.prompt ? req.body.prompt : undefined;
+    const result = await getCostSummary(userPrompt);
     if (result.error) {
       res.status(500).type('text/plain').send(`Error: ${result.message}`);
     } else {
