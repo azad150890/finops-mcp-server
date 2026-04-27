@@ -123,11 +123,17 @@ async function send() {
       const errText = await res.text();
       throw new Error(`HTTP ${res.status}: ${errText}`);
     }
-    const data = await res.json();
+    let output;
+    // Try to parse as JSON, fallback to text
+    const raw = await res.text();
+    try {
+      const data = JSON.parse(raw);
+      output = data.summary || data.result || data.message || JSON.stringify(data, null, 2);
+    } catch {
+      output = raw;
+    }
     // Remove the loading message
     chatHistory.pop();
-    // Extract a reasonable response
-    const output = data.summary || data.result || data.message || JSON.stringify(data, null, 2);
     chatHistory.push({ sender: "bot", text: output });
     renderChat();
   } catch (err) {
