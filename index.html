@@ -9,24 +9,59 @@
       padding: 20px;
     }
 
-    #out {
+    #chat-container {
       margin-top: 20px;
-      padding: 12px;
-      background: #111;
+      background: #222;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 300px;
+      max-width: 500px;
+      box-shadow: 0 2px 8px #0002;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg-row {
+      display: flex;
+      margin-bottom: 6px;
+    }
+    .msg-user {
+      margin-left: auto;
+      background: #0078d4;
+      color: #fff;
+      border-radius: 16px 16px 0 16px;
+      padding: 8px 14px;
+      max-width: 70%;
+      word-break: break-word;
+    }
+    .msg-bot {
+      margin-right: auto;
+      background: #333;
       color: #0f0;
-      white-space: pre-wrap;
-      min-height: 120px;
-      border-radius: 6px;
+      border-radius: 16px 16px 16px 0;
+      padding: 8px 14px;
+      max-width: 70%;
+      word-break: break-word;
     }
-
-    input {
-      width: 300px;
+    #input-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    #msg {
+      flex: 1;
       padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #888;
     }
-
     button {
-      padding: 8px 12px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      background: #0078d4;
+      color: #fff;
       cursor: pointer;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -35,17 +70,43 @@
 
 <h2>FinOps MCP Chatbot</h2>
 
-<input id="msg" placeholder="Ask cost question..." />
-<button onclick="send()">Send</button>
 
-<pre id="out"></pre>
+<div id="chat-container"></div>
+<div id="input-row">
+  <input id="msg" placeholder="Ask cost question..." autocomplete="off" />
+  <button onclick="send()">Send</button>
+</div>
 
 <script>
-async function send() {
-  const msg = document.getElementById("msg").value;
-  const out = document.getElementById("out");
+const chatContainer = document.getElementById("chat-container");
+const msgInput = document.getElementById("msg");
 
-  out.textContent = "Loading...";
+let chatHistory = [];
+
+function renderChat() {
+  chatContainer.innerHTML = "";
+  chatHistory.forEach(({ sender, text }) => {
+    const row = document.createElement("div");
+    row.className = "msg-row";
+    const bubble = document.createElement("div");
+    bubble.className = sender === "user" ? "msg-user" : "msg-bot";
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    chatContainer.appendChild(row);
+  });
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+async function send() {
+  const msg = msgInput.value.trim();
+  if (!msg) return;
+  chatHistory.push({ sender: "user", text: msg });
+  renderChat();
+  msgInput.value = "";
+
+  // Show bot is thinking
+  chatHistory.push({ sender: "bot", text: "..." });
+  renderChat();
 
   try {
     const res = await fetch(
@@ -55,36 +116,33 @@ async function send() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          message: msg
-        })
+        body: JSON.stringify({ message: msg })
       }
     );
-
-    // Handle HTTP errors properly
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`HTTP ${res.status}: ${errText}`);
     }
-
-    const text = await res.text();
-
-    console.log("API RESPONSE:", data);
-
-    // Safely extract common response formats
-    const output =
-      data.summary ||
-      data.result ||
-      data.message ||
-      JSON.stringify(data, null, 2);
-
-    out.textContent = text;
-
+    const data = await res.json();
+    // Remove the loading message
+    chatHistory.pop();
+    // Extract a reasonable response
+    const output = data.summary || data.result || data.message || JSON.stringify(data, null, 2);
+    chatHistory.push({ sender: "bot", text: output });
+    renderChat();
   } catch (err) {
-    console.error(err);
-    out.textContent = "Error:\n" + err.message;
+    chatHistory.pop();
+    chatHistory.push({ sender: "bot", text: "Error: " + err.message });
+    renderChat();
   }
 }
+
+// Send on Enter key
+msgInput.addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    send();
+  }
+});
 </script>
 
 </body>
